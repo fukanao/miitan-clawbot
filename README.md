@@ -61,10 +61,7 @@ MIITAN_MOCK_OPENCLAW=false
 
 ```json
 {
-  "message": "こんにちは",
-  "history": [
-    { "role": "user", "content": "こんにちは" }
-  ]
+  "message": "こんにちは"
 }
 ```
 

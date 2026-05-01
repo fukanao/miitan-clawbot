@@ -20,7 +20,7 @@ class OpenClawClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    async def chat(self, message: str, history: list[dict[str, str]]) -> dict[str, str]:
+    async def chat(self, message: str) -> dict[str, str]:
         if self.settings.mock_openclaw or not self.settings.openclaw_base_url:
             reply = self._mock_reply(message)
             return self._format_reply(message, reply)
@@ -32,7 +32,6 @@ class OpenClawClient:
 
         payload = {
             "message": message,
-            "history": history,
         }
 
         try:

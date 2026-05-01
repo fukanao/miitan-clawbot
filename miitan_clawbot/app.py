@@ -22,14 +22,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/maid_faces", StaticFiles(directory=MAID_FACES_DIR), name="maid_faces")
 
 
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
-    history: list[ChatMessage] = Field(default_factory=list)
 
 
 @app.get("/")
@@ -51,10 +45,9 @@ async def faces() -> list[dict[str, str]]:
 async def chat(request: ChatRequest) -> dict[str, str]:
     settings = get_settings()
     client = OpenClawClient(settings)
-    history = [message.model_dump() for message in request.history]
 
     try:
-        result = await client.chat(request.message, history)
+        result = await client.chat(request.message)
     except OpenClawError as exc:
         return {
             "reply": str(exc),
