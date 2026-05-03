@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Miitan Clawbot</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="avatar-panel" aria-label="Miitan">
         <div class="avatar-wrap">
-          <img id="face" src="/maid_faces/maid_05_tsujo_normal.png" alt="Miitan" />
+          <img id="face" src="../maid_faces/maid_05_tsujo_normal.png" alt="Miitan" />
         </div>
       </section>
 
@@ -20,10 +20,23 @@
             <h1>Miitan Clawbot</h1>
             <p id="status">OpenClaw接続待機中</p>
           </div>
-          <button id="voiceButton" type="button" title="音声入力">🎙</button>
+          <div class="header-actions">
+            <button id="cameraButton" type="button" title="撮影">📷</button>
+            <button id="voiceButton" type="button" title="音声入力">🎙</button>
+          </div>
         </header>
 
         <div id="messages" class="messages" aria-live="polite"></div>
+
+        <section id="cameraTray" class="camera-tray" hidden>
+          <video id="cameraPreview" autoplay playsinline muted></video>
+          <canvas id="cameraCanvas" hidden></canvas>
+          <div class="camera-actions">
+            <button id="captureButton" type="button">撮影</button>
+            <button id="switchCameraButton" type="button">前面</button>
+            <button id="closeCameraButton" type="button">閉じる</button>
+          </div>
+        </section>
 
         <form id="chatForm" class="composer">
           <input
@@ -39,6 +52,6 @@
       </section>
     </main>
 
-    <script src="/static/app.js?v=20260430-02"></script>
+    <script src="app.js?v=20260503-05"></script>
   </body>
 </html>

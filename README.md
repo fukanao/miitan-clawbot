@@ -6,7 +6,7 @@ clawbotを使ったメイドシステム
 ブラウザでアクセスできるチャット画面から、別ホストで動作しているOpenClawへ会話を送ります。
 会話内容やOpenClawの応答に合わせて、みーたんの表情画像を9種類に切り替えます。
 
-将来的な音声会話に向けて、ブラウザの音声入力と音声読み上げの入口も用意しています。
+将来的な音声入力に向けて、ブラウザの音声入力の入口も用意しています。返答の音声読み上げは行いません。
 
 ## 表情
 
@@ -48,9 +48,11 @@ cp .env.example .env
 `.env` を編集します。
 
 ```env
-OPENCLAW_BASE_URL=http://openclaw-host:8000
-OPENCLAW_CHAT_PATH=/chat
-OPENCLAW_API_KEY=
+OPENCLAW_BASE_URL=http://192.168.0.175:18789
+OPENCLAW_CHAT_PATH=/v1/chat/completions
+OPENCLAW_MODEL=openclaw/default
+OPENCLAW_USER=web-ui-user
+OPENCLAW_API_KEY=<OpenClaw Gatewayのtoken>
 OPENCLAW_TIMEOUT_SECONDS=30
 MIITAN_MOCK_OPENCLAW=false
 ```
@@ -61,11 +63,18 @@ MIITAN_MOCK_OPENCLAW=false
 
 ```json
 {
-  "message": "こんにちは"
+  "model": "openclaw/default",
+  "messages": [
+    {
+      "role": "user",
+      "content": "こんにちは"
+    }
+  ],
+  "user": "web-ui-user"
 }
 ```
 
-OpenClawからの応答は、次のどれかの本文キーを読み取ります。
+OpenClawからの応答は、OpenAI互換の `choices[0].message.content` を優先して読み取ります。互換用に、次の本文キーも読み取ります。
 
 - `reply`
 - `message`

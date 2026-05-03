@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -24,11 +24,12 @@ app.mount("/maid_faces", StaticFiles(directory=MAID_FACES_DIR), name="maid_faces
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
+    image: str | None = Field(default=None, max_length=3_000_000)
 
 
 @app.get("/")
-async def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+async def index() -> RedirectResponse:
+    return RedirectResponse("/static/index.html")
 
 
 @app.get("/api/emotions")
@@ -47,7 +48,7 @@ async def chat(request: ChatRequest) -> dict[str, str]:
     client = OpenClawClient(settings)
 
     try:
-        result = await client.chat(request.message)
+        result = await client.chat(request.message, request.image)
     except OpenClawError as exc:
         return {
             "reply": str(exc),

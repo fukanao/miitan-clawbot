@@ -11,7 +11,8 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
 }
 
 button,
@@ -22,13 +23,15 @@ input {
 .shell {
   display: grid;
   grid-template-columns: minmax(280px, 420px) minmax(360px, 1fr);
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
 }
 
 .avatar-panel {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-height: 0;
   padding: 40px;
   background: #eaf4f4;
   border-right: 1px solid rgba(31, 41, 51, 0.12);
@@ -38,19 +41,23 @@ input {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
+  width: min(100%, 380px);
+  max-height: min(70dvh, 520px);
+  min-height: 0;
 }
 
 .avatar-wrap img {
-  width: min(100%, 380px);
-  max-height: 70vh;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 18px 28px rgba(31, 41, 51, 0.18));
 }
 
 .chat-panel {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: 100vh;
+  grid-template-rows: auto 1fr auto auto;
+  height: 100dvh;
+  min-height: 0;
   background: #fffaf3;
 }
 
@@ -75,6 +82,13 @@ input {
   font-size: 14px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+#cameraButton,
 #voiceButton {
   width: 44px;
   height: 44px;
@@ -84,6 +98,7 @@ input {
   cursor: pointer;
 }
 
+#cameraButton:disabled,
 #voiceButton.listening {
   background: #ffe8ec;
   border-color: #ef476f;
@@ -93,8 +108,10 @@ input {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
   overflow-y: auto;
   padding: 28px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .message {
@@ -103,6 +120,15 @@ input {
   border-radius: 8px;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.message-image {
+  display: block;
+  width: min(280px, 100%);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  margin-bottom: 10px;
+  border-radius: 8px;
 }
 
 .message.user {
@@ -114,6 +140,54 @@ input {
   align-self: flex-start;
   background: #ffffff;
   border: 1px solid rgba(31, 41, 51, 0.1);
+}
+
+.camera-tray {
+  display: grid;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(31, 41, 51, 0.1);
+  background: #f0f7f6;
+}
+
+.camera-tray[hidden] {
+  display: none;
+}
+
+.camera-tray video {
+  width: min(420px, 100%);
+  aspect-ratio: 4 / 3;
+  justify-self: center;
+  border-radius: 8px;
+  background: #1f2933;
+  object-fit: cover;
+}
+
+.camera-tray video.user-facing {
+  transform: scaleX(-1);
+}
+
+.camera-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.camera-actions button {
+  height: 40px;
+  border: 1px solid rgba(31, 41, 51, 0.12);
+  border-radius: 8px;
+  padding: 0 16px;
+  background: #ffffff;
+  color: #1f2933;
+  cursor: pointer;
+}
+
+.camera-actions button:first-child {
+  border: 0;
+  background: #175e5a;
+  color: #ffffff;
 }
 
 .composer {
@@ -145,26 +219,106 @@ input {
 }
 
 @media (max-width: 780px) {
+  body {
+    overflow: hidden;
+  }
+
   .shell {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: minmax(148px, 32dvh) minmax(0, 1fr);
+    height: 100dvh;
   }
 
   .avatar-panel {
-    padding: 18px;
+    padding: 12px 16px;
     border-right: 0;
     border-bottom: 1px solid rgba(31, 41, 51, 0.12);
   }
 
   .avatar-wrap {
-    aspect-ratio: auto;
+    aspect-ratio: unset;
+    width: min(48vw, 190px);
+    height: 100%;
+    max-height: 100%;
   }
 
   .avatar-wrap img {
-    width: min(54vw, 220px);
+    width: 100%;
+    height: 100%;
   }
 
   .chat-panel {
+    height: auto;
     min-height: 0;
+  }
+
+  .chat-header {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .chat-header h1 {
+    font-size: 19px;
+  }
+
+  .chat-header p {
+    font-size: 12px;
+  }
+
+  #cameraButton,
+  #voiceButton {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+  }
+
+  .messages {
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .message {
+    max-width: 94%;
+    padding: 11px 13px;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .camera-tray {
+    padding: 10px;
+  }
+
+  .camera-tray video {
+    width: min(300px, 100%);
+    max-height: 22dvh;
+  }
+
+  .composer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .composer input,
+  .composer button {
+    height: 44px;
+  }
+
+  .composer button {
+    padding: 0 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .shell {
+    grid-template-rows: minmax(124px, 28dvh) minmax(0, 1fr);
+  }
+
+  .avatar-wrap img {
+    width: 100%;
+  }
+
+  .avatar-wrap {
+    width: min(44vw, 156px);
   }
 }

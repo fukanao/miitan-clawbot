@@ -12,6 +12,13 @@ from .faces import (
 )
 
 
+MIITAN_SYSTEM_PROMPT = (
+    "あなたは「みーたん」として、現在のユーザ発話に自然に返答します。"
+    "ユーザが明示的に求めない限り、過去の話題、前回回答、前回の冗談、"
+    "以前のやり取りの内容を再提示したり繰り返したりしないでください。"
+)
+
+
 class OpenClawError(RuntimeError):
     pass
 
@@ -20,9 +27,9 @@ class OpenClawClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    async def chat(self, message: str) -> dict[str, str]:
+    async def chat(self, message: str, image_data_url: str | None = None) -> dict[str, str]:
         if self.settings.mock_openclaw or not self.settings.openclaw_base_url:
-            reply = self._mock_reply(message)
+            reply = self._mock_reply(message, has_image=bool(image_data_url))
             return self._format_reply(message, reply)
 
         url = f"{self.settings.openclaw_base_url}{self.settings.openclaw_chat_path}"
@@ -30,8 +37,20 @@ class OpenClawClient:
         if self.settings.openclaw_api_key:
             headers["Authorization"] = f"Bearer {self.settings.openclaw_api_key}"
 
+        user_content: str | list[dict[str, object]] = message
+        if image_data_url:
+            user_content = [
+                {"type": "text", "text": message},
+                {"type": "image_url", "image_url": {"url": image_data_url}},
+            ]
+
         payload = {
-            "message": message,
+            "model": self.settings.openclaw_model,
+            "messages": [
+                {"role": "system", "content": MIITAN_SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            "user": self.settings.openclaw_user,
         }
 
         try:
@@ -42,9 +61,9 @@ class OpenClawClient:
             raise OpenClawError(f"OpenClawへの接続に失敗しました: {exc}") from exc
 
         data = response.json()
-        reply = str(data.get("reply") or data.get("message") or data.get("text") or "")
+        reply = self._extract_reply(data)
         if not reply:
-            raise OpenClawError("OpenClawの応答に reply/message/text が含まれていません。")
+            raise OpenClawError("OpenClawの応答に本文が含まれていません。")
 
         return self._format_reply(
             message,
@@ -52,6 +71,44 @@ class OpenClawClient:
             emotion=data.get("emotion"),
             image=data.get("image"),
         )
+
+    def _extract_reply(self, data: object) -> str:
+        if not isinstance(data, dict):
+            return ""
+
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            first_choice = choices[0]
+            if isinstance(first_choice, dict):
+                message = first_choice.get("message")
+                if isinstance(message, dict):
+                    content = message.get("content")
+                    if isinstance(content, str):
+                        return content
+
+                text = first_choice.get("text")
+                if isinstance(text, str):
+                    return text
+
+        output = data.get("output")
+        if isinstance(output, list):
+            parts: list[str] = []
+            for item in output:
+                if not isinstance(item, dict):
+                    continue
+                content = item.get("content")
+                if not isinstance(content, list):
+                    continue
+                for content_item in content:
+                    if not isinstance(content_item, dict):
+                        continue
+                    text = content_item.get("text")
+                    if isinstance(text, str):
+                        parts.append(text)
+            if parts:
+                return "\n".join(parts)
+
+        return str(data.get("reply") or data.get("message") or data.get("text") or "")
 
     def _format_reply(
         self,
@@ -86,7 +143,13 @@ class OpenClawClient:
             "image": face.image or DEFAULT_FACE.image,
         }
 
-    def _mock_reply(self, message: str) -> str:
+    def _mock_reply(self, message: str, *, has_image: bool = False) -> str:
+        if has_image:
+            return (
+                "写真を見ました。写っているものを手がかりに、できるだけ丁寧に答えますね。\n"
+                '{"category":"emotion","emotion":"楽しみ","image":"maid_04_tanoshimi_fun.png"}'
+            )
+
         emotion = infer_emotion(message)
         replies = {
             "happy": (

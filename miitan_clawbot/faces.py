@@ -110,12 +110,23 @@ def _normalize_face_payload(value: Any) -> dict[str, str] | None:
     if not isinstance(value, dict):
         return None
 
-    if value.get("category") != "emotion":
+    category = value.get("category")
+    if category is not None and category != "emotion":
         return None
 
-    image = normalize_image(value.get("image"))
-    face = FACE_BY_IMAGE.get(image, DEFAULT_FACE)
-    emotion = value.get("emotion") if isinstance(value.get("emotion"), str) else face.label
+    raw_emotion = value.get("emotion")
+    raw_image = value.get("image")
+    if not isinstance(raw_emotion, str) and not isinstance(raw_image, str):
+        return None
+
+    if isinstance(raw_image, str):
+        image = normalize_image(raw_image)
+        face = FACE_BY_IMAGE.get(image, DEFAULT_FACE)
+    else:
+        face = face_for_emotion(raw_emotion)
+        image = face.image
+
+    emotion = raw_emotion if isinstance(raw_emotion, str) else face.label
 
     return {
         "category": "emotion",
