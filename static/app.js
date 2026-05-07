@@ -11,12 +11,16 @@ const cameraCanvas = document.querySelector("#cameraCanvas");
 const captureButton = document.querySelector("#captureButton");
 const switchCameraButton = document.querySelector("#switchCameraButton");
 const closeCameraButton = document.querySelector("#closeCameraButton");
+const photoDraft = document.querySelector("#photoDraft");
+const photoDraftImage = document.querySelector("#photoDraftImage");
+const clearPhotoButton = document.querySelector("#clearPhotoButton");
 
 const history = [];
 let activeImage = "maid_05_tsujo_normal.png";
 let recognition = null;
 let cameraStream = null;
 let cameraFacingMode = "environment";
+let pendingImage = null;
 
 const faceImageBasePath = "../maid_faces/";
 
@@ -45,6 +49,13 @@ function addMessage(role, content, image = null) {
 function setFace(image) {
   activeImage = image || "maid_05_tsujo_normal.png";
   face.src = `${faceImageBasePath}${encodeURIComponent(activeImage)}`;
+}
+
+function setPendingImage(image) {
+  pendingImage = image;
+  photoDraft.hidden = !image;
+  photoDraftImage.src = image || "";
+  statusText.textContent = image ? "コメントを入れて送信できます" : "会話できます";
 }
 
 async function sendMessage(message, image = null) {
@@ -138,13 +149,16 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = input.value.trim();
   if (!message) return;
+  const image = pendingImage;
 
   input.value = "";
+  setPendingImage(null);
   input.disabled = true;
   form.querySelector("button").disabled = true;
+  cameraButton.disabled = true;
 
   try {
-    await sendMessage(message);
+    await sendMessage(message, image);
   } catch (error) {
     addMessage("assistant", "通信で問題が起きました。設定を確認してください。");
     setFace("maid_08_komari_troubled.png");
@@ -152,6 +166,7 @@ form.addEventListener("submit", async (event) => {
   } finally {
     input.disabled = false;
     form.querySelector("button").disabled = false;
+    cameraButton.disabled = false;
     input.focus();
   }
 });
@@ -170,26 +185,16 @@ captureButton.addEventListener("click", async () => {
   if (!image) return;
 
   closeCamera();
-  input.disabled = true;
-  form.querySelector("button").disabled = true;
-  cameraButton.disabled = true;
-
-  try {
-    await sendMessage("この写真を見て、気づいたことを教えて。", image);
-  } catch (error) {
-    addMessage("assistant", "写真の送信で問題が起きました。設定を確認してください。");
-    setFace("maid_08_komari_troubled.png");
-    statusText.textContent = "通信エラー";
-  } finally {
-    input.disabled = false;
-    form.querySelector("button").disabled = false;
-    cameraButton.disabled = false;
-    input.focus();
-  }
+  setPendingImage(image);
+  input.focus();
 });
 
 switchCameraButton.addEventListener("click", switchCamera);
 closeCameraButton.addEventListener("click", closeCamera);
+clearPhotoButton.addEventListener("click", () => {
+  setPendingImage(null);
+  input.focus();
+});
 updateCameraModeLabel();
 
 function setupVoiceInput() {

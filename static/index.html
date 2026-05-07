@@ -39,12 +39,16 @@
         </section>
 
         <form id="chatForm" class="composer">
+          <div id="photoDraft" class="photo-draft" hidden>
+            <img id="photoDraftImage" alt="送信する写真" />
+            <button id="clearPhotoButton" type="button">削除</button>
+          </div>
           <input
             id="messageInput"
             name="message"
             type="text"
             autocomplete="off"
-            placeholder="メッセージを入力"
+            placeholder="写真へのコメントを入力"
             required
           />
           <button type="submit">送信</button>
@@ -52,6 +56,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=20260503-05"></script>
+    <script src="app.js?v=20260503-06"></script>
   </body>
 </html>

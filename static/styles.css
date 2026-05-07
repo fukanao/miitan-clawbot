@@ -199,6 +199,35 @@ input {
   background: rgba(255, 255, 255, 0.76);
 }
 
+.photo-draft {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.photo-draft[hidden] {
+  display: none;
+}
+
+.photo-draft img {
+  width: 92px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(31, 41, 51, 0.12);
+}
+
+.photo-draft button {
+  height: 36px;
+  border: 1px solid rgba(31, 41, 51, 0.12);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #1f2933;
+}
+
 .composer input {
   min-width: 0;
   height: 48px;
