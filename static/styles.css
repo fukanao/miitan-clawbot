@@ -131,6 +131,19 @@ input {
   border-radius: 8px;
 }
 
+.citations {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+}
+
+.citations a {
+  color: inherit;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
 .message.user {
   align-self: flex-end;
   background: #d8f3dc;

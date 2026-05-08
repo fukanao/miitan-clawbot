@@ -17,14 +17,53 @@ const clearPhotoButton = document.querySelector("#clearPhotoButton");
 
 const history = [];
 let activeImage = "maid_05_tsujo_normal.png";
-let recognition = null;
 let cameraStream = null;
 let cameraFacingMode = "environment";
 let pendingImage = null;
+let previousResponseId = null;
+let realtimePeer = null;
+let realtimeChannel = null;
+let realtimeMicStream = null;
+let realtimeAudio = null;
+let realtimeAssistantDraft = "";
 
 const faceImageBasePath = "../maid_faces/";
+const emotionFaces = [
+  {
+    image: "maid_01_yorokobi_joy.png",
+    keywords: ["うれしい", "嬉しい", "よかった", "最高", "ありがとう", "助かる"],
+  },
+  {
+    image: "maid_02_ikari_anger.png",
+    keywords: ["怒", "ひどい", "許せ", "だめ", "ダメ"],
+  },
+  {
+    image: "maid_03_kanashimi_sadness.png",
+    keywords: ["悲しい", "つらい", "寂しい", "ごめん", "残念"],
+  },
+  {
+    image: "maid_04_tanoshimi_fun.png",
+    keywords: ["楽しい", "楽しみ", "わくわく", "面白い", "やってみよう"],
+  },
+  {
+    image: "maid_06_tere_shy.png",
+    keywords: ["照れ", "えへへ", "恥ずかしい"],
+  },
+  {
+    image: "maid_07_odoroki_surprise.png",
+    keywords: ["びっくり", "驚", "すごい", "まさか"],
+  },
+  {
+    image: "maid_08_komari_troubled.png",
+    keywords: ["困", "うーん", "難しい", "確認", "問題", "エラー"],
+  },
+  {
+    image: "maid_09_dojikko_clumsy.png",
+    keywords: ["あれ", "うっかり", "ドジ", "間違え"],
+  },
+];
 
-function addMessage(role, content, image = null) {
+function addMessage(role, content, image = null, citations = []) {
   const bubble = document.createElement("div");
   bubble.className = `message ${role}`;
 
@@ -42,6 +81,20 @@ function addMessage(role, content, image = null) {
     bubble.appendChild(text);
   }
 
+  if (citations.length) {
+    const sourceList = document.createElement("div");
+    sourceList.className = "citations";
+    citations.forEach((citation) => {
+      const link = document.createElement("a");
+      link.href = citation.url;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = citation.title || citation.url;
+      sourceList.appendChild(link);
+    });
+    bubble.appendChild(sourceList);
+  }
+
   messages.appendChild(bubble);
   messages.scrollTop = messages.scrollHeight;
 }
@@ -49,6 +102,11 @@ function addMessage(role, content, image = null) {
 function setFace(image) {
   activeImage = image || "maid_05_tsujo_normal.png";
   face.src = `${faceImageBasePath}${encodeURIComponent(activeImage)}`;
+}
+
+function setFaceFromText(text) {
+  const matched = emotionFaces.find((entry) => entry.keywords.some((keyword) => text.includes(keyword)));
+  setFace(matched?.image || "maid_05_tsujo_normal.png");
 }
 
 function setPendingImage(image) {
@@ -61,16 +119,21 @@ function setPendingImage(image) {
 async function sendMessage(message, image = null) {
   addMessage("user", message, image);
   history.push({ role: "user", content: message });
-  statusText.textContent = "OpenClawに送信中";
+  statusText.textContent = "OpenAI APIに送信中";
 
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, image }),
+    body: JSON.stringify({
+      message,
+      image,
+      previous_response_id: previousResponseId,
+    }),
   });
 
   const data = await response.json();
-  addMessage("assistant", data.reply);
+  previousResponseId = data.response_id || previousResponseId;
+  addMessage("assistant", data.reply, null, data.citations || []);
   history.push({ role: "assistant", content: data.reply });
   setFace(data.image);
   statusText.textContent = "会話できます";
@@ -197,33 +260,173 @@ clearPhotoButton.addEventListener("click", () => {
 });
 updateCameraModeLabel();
 
-function setupVoiceInput() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    voiceButton.disabled = true;
-    voiceButton.title = "このブラウザは音声入力に未対応です";
+function handleRealtimeEvent(event) {
+  if (event.type === "conversation.item.input_audio_transcription.completed" && event.transcript) {
+    addMessage("user", event.transcript);
     return;
   }
 
-  recognition = new SpeechRecognition();
-  recognition.lang = "ja-JP";
-  recognition.interimResults = false;
-  recognition.continuous = false;
+  if (event.type === "response.output_text.delta" && event.delta) {
+    realtimeAssistantDraft += event.delta;
+    return;
+  }
 
-  recognition.addEventListener("result", (event) => {
-    const transcript = event.results[0][0].transcript;
-    input.value = transcript;
-    form.requestSubmit();
+  if (event.type === "response.output_audio_transcript.delta" && event.delta) {
+    realtimeAssistantDraft += event.delta;
+    return;
+  }
+
+  if (event.type === "response.done") {
+    const text = realtimeAssistantDraft.trim();
+    if (text) {
+      addMessage("assistant", text);
+      setFaceFromText(text);
+    }
+    realtimeAssistantDraft = "";
+    statusText.textContent = "音声で会話できます";
+    return;
+  }
+
+  if (event.type === "error") {
+    const message = event.error?.message || "Realtime APIでエラーが起きました。";
+    addMessage("assistant", message);
+    statusText.textContent = "音声エラー";
+    setFace("maid_08_komari_troubled.png");
+  }
+}
+
+function stopRealtimeChat() {
+  if (realtimeChannel) {
+    realtimeChannel.close();
+    realtimeChannel = null;
+  }
+  if (realtimePeer) {
+    realtimePeer.close();
+    realtimePeer = null;
+  }
+  if (realtimeMicStream) {
+    realtimeMicStream.getTracks().forEach((track) => track.stop());
+    realtimeMicStream = null;
+  }
+  if (realtimeAudio) {
+    realtimeAudio.srcObject = null;
+    realtimeAudio.remove();
+    realtimeAudio = null;
+  }
+  realtimeAssistantDraft = "";
+  voiceButton.classList.remove("listening");
+  voiceButton.title = "音声会話";
+  statusText.textContent = "会話できます";
+}
+
+function readableRealtimeError(error) {
+  const message = error?.message || "音声会話の接続に失敗しました。";
+  if (message.includes("<!DOCTYPE html>") || message.includes("<html")) {
+    const statusMatch = message.match(/HTTP\s+\d+/);
+    return `OpenAI Realtime APIへの接続に失敗しました: ${statusMatch ? statusMatch[0] : "サーバーエラー"}。少し待ってもう一度試してください。`;
+  }
+  return message;
+}
+
+async function createRealtimeAnswer(offerSdp) {
+  const tokenResponse = await fetch("/api/realtime/token");
+  if (!tokenResponse.ok) {
+    throw new Error(await tokenResponse.text());
+  }
+
+  const tokenData = await tokenResponse.json();
+  const ephemeralKey = tokenData.value;
+  const realtimeUrl = tokenData.realtime_url || "https://api.openai.com/v1/realtime/calls";
+  if (!ephemeralKey) {
+    throw new Error("Realtime APIの一時トークンを取得できませんでした。");
+  }
+
+  const sdpResponse = await fetch(realtimeUrl, {
+    method: "POST",
+    body: offerSdp,
+    headers: {
+      Authorization: `Bearer ${ephemeralKey}`,
+      "Content-Type": "application/sdp",
+    },
   });
 
-  recognition.addEventListener("end", () => {
-    voiceButton.classList.remove("listening");
-  });
+  if (!sdpResponse.ok) {
+    const detail = await sdpResponse.text();
+    throw new Error(`OpenAI Realtime APIへの接続に失敗しました: HTTP ${sdpResponse.status} ${detail}`);
+  }
 
-  voiceButton.addEventListener("click", () => {
+  return sdpResponse.text();
+}
+
+async function startRealtimeChat() {
+  if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+    addMessage("assistant", "このブラウザでは音声会話を使えません。");
+    return;
+  }
+
+  try {
+    statusText.textContent = "音声接続中";
+    voiceButton.disabled = true;
+
+    realtimePeer = new RTCPeerConnection();
+    realtimeAudio = document.createElement("audio");
+    realtimeAudio.autoplay = true;
+    realtimeAudio.hidden = true;
+    document.body.appendChild(realtimeAudio);
+    realtimePeer.ontrack = (event) => {
+      realtimeAudio.srcObject = event.streams[0];
+    };
+
+    realtimeMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    realtimeMicStream.getAudioTracks().forEach((track) => {
+      realtimePeer.addTrack(track, realtimeMicStream);
+    });
+
+    realtimeChannel = realtimePeer.createDataChannel("oai-events");
+    realtimeChannel.addEventListener("message", (event) => {
+      try {
+        handleRealtimeEvent(JSON.parse(event.data));
+      } catch (error) {
+        console.warn("Realtime event parse failed", error);
+      }
+    });
+
+    const offer = await realtimePeer.createOffer();
+    await realtimePeer.setLocalDescription(offer);
+
+    const answerSdp = await createRealtimeAnswer(offer.sdp);
+
+    await realtimePeer.setRemoteDescription({
+      type: "answer",
+      sdp: answerSdp,
+    });
+
     voiceButton.classList.add("listening");
-    recognition.start();
-  });
+    voiceButton.title = "音声会話を終了";
+    statusText.textContent = "音声で会話できます";
+  } catch (error) {
+    stopRealtimeChat();
+    addMessage("assistant", readableRealtimeError(error));
+    setFace("maid_08_komari_troubled.png");
+    statusText.textContent = "音声エラー";
+  } finally {
+    voiceButton.disabled = false;
+  }
+}
+
+voiceButton.addEventListener("click", () => {
+  if (realtimePeer) {
+    stopRealtimeChat();
+    return;
+  }
+
+  startRealtimeChat();
+});
+
+window.addEventListener("beforeunload", stopRealtimeChat);
+
+function setupVoiceInput() {
+  voiceButton.title = "音声会話";
 }
 
 setupVoiceInput();
